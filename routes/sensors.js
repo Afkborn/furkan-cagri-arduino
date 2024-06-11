@@ -4,13 +4,14 @@ const { sendJsonObjectToAllClients } = require("./sensor-websocket");
 const Messages = require("../constants/Messages");
 const config = require("../constants/config.json");
 const {
-  TEMPERATURE_HIGH,
-  HUMIDITY_HIGH,
-  TEMPERATURE_LOW,
-  HUMIDITY_LOW,
+  SENSOR_DATA,
+  FLAME_HIGH,
+  GAS_HIGH,
+  WATER_HIGH,
 } = require("../constants/websocketTypes");
 const Logger = require("../middleware/logger");
 const db = require("../db/db");
+const getTimeForLog = require("../common/time");
 
 // set Temperature sensor data
 // use params to get the temperature value
@@ -53,6 +54,71 @@ const db = require("../db/db");
 //   }
 // );
 
+// post limit data
+const requestPostLimitData = "post_limit_data";
+router.post(
+  "/limit-data",
+  Logger(requestPostLimitData),
+  (request, response) => {
+    let highGas = request.query.highGas;
+    let highFlame = request.query.highFlame;
+    let highWater = request.query.highWater;
+
+    if (
+      highGas === undefined ||
+      highFlame === undefined ||
+      highWater === undefined
+    ) {
+      console.log(getTimeForLog() + "Undefined value");
+      response.status(400).send({
+        status: false,
+        message: Messages.VALUE_REQUIRED,
+      });
+      return;
+    }
+
+    highGas = parseFloat(highGas);
+    highFlame = parseFloat(highFlame);
+    highWater = parseFloat(highWater);
+
+    if (isNaN(highGas) || isNaN(highFlame) || isNaN(highWater)) {
+      console.log(getTimeForLog() + "Invalid value");
+      response.status(400).send({
+        status: false,
+        message: Messages.INVALID_VALUE,
+      });
+      return;
+    }
+
+    config.HIGH_GAS_THRESHOLD = highGas;
+    config.HIGH_FLAME_THRESHOLD = highFlame;
+    config.HIGH_WATER_THRESHOLD = highWater;
+
+    console.log(
+      getTimeForLog() +
+        `New limit values: High Gas: ${highGas}, High Flame: ${highFlame}, High Water: ${highWater}`
+    );
+
+    response.status(200).send({
+      status: true,
+      message: Messages.VALUE_SET,
+    });
+  }
+);
+
+// get limit data
+const requestGetLimitData = "get_limit_data";
+router.get("/limit-data", Logger(requestGetLimitData), (request, response) => {
+  response.status(200).send({
+    status: true,
+    data: {
+      highGas: config.HIGH_GAS_THRESHOLD,
+      highFlame: config.HIGH_FLAME_THRESHOLD,
+      highWater: config.HIGH_WATER_THRESHOLD,
+    },
+  });
+});
+
 const requestPostSensorData = "post_sensor_data";
 // get data with params  humidity and temperature
 router.post(
@@ -61,55 +127,95 @@ router.post(
   (request, response) => {
     let temperature = request.query.temperature;
     let humidity = request.query.humidity;
+    let gas = request.query.gas;
+    let flame = request.query.flame;
+    let water = request.query.water;
 
-    if (temperature === undefined || humidity === undefined) {
+    if (
+      temperature === undefined ||
+      humidity === undefined ||
+      gas === undefined ||
+      flame === undefined ||
+      water === undefined
+    ) {
+      console.log(getTimeForLog() + "Undefined value");
       response.status(400).send({
         status: false,
-        message: Messages.TEMPERATURE_HUMIDITY_REQUIRED,
+        message: Messages.VALUE_REQUIRED,
       });
       return;
     }
- 
+
     temperature = parseFloat(temperature);
     humidity = parseFloat(humidity);
+    gas = parseFloat(gas);
+    flame = parseFloat(flame);
+    water = parseFloat(water);
 
-    if (isNaN(temperature) || isNaN(humidity)) {
+    if (
+      isNaN(temperature) ||
+      isNaN(humidity) ||
+      isNaN(gas) ||
+      isNaN(flame) ||
+      isNaN(water)
+    ) {
+      console.log(getTimeForLog() + "Invalid value");
       response.status(400).send({
         status: false,
-        message: Messages.INVALID_TEMPERATURE_HUMIDITY,
+        message: Messages.INVALID_VALUE,
       });
       return;
     }
 
     db.insertTemperature(temperature);
     db.insertHumidity(humidity);
+    db.insertGas(gas);
+    db.insertFlame(flame);
+    db.insertWater(water);
 
     response.status(200).send({
       status: true,
-      message: Messages.TEMPERATURE_HUMIDITY_SET(temperature, humidity),
+      message: Messages.VALUE_SET,
     });
+    let date = new Date().toISOString();
+    sendJsonObjectToAllClients(
+      SENSOR_DATA(date, temperature, humidity, gas, flame, water)
+    );
 
-    if (temperature > config.HIGH_TEMPERATURE_THRESHOLD) {
-      sendJsonObjectToAllClients(TEMPERATURE_HIGH(temperature));
-    } else if (temperature < config.LOW_TEMPERATURE_THRESHOLD) {
-      sendJsonObjectToAllClients(TEMPERATURE_LOW(temperature));
+    // GAZ değeri eşikten fazla ise uyarı gönder
+    if (gas > config.HIGH_GAS_THRESHOLD) {
+      sendJsonObjectToAllClients(GAS_HIGH(gas));
     }
 
-    if (humidity > config.HIGH_HUMIDITY_THRESHOLD) {
-      sendJsonObjectToAllClients(HUMIDITY_HIGH(humidity));
-    } else if (humidity < config.LOW_HUMIDITY_THRESHOLD) {
-      sendJsonObjectToAllClients(HUMIDITY_LOW(humidity));
+    if (flame < config.HIGH_FLAME_THRESHOLD) {
+      sendJsonObjectToAllClients(FLAME_HIGH(flame));
     }
+
+    if (water > config.HIGH_WATER_THRESHOLD) {
+      sendJsonObjectToAllClients(WATER_HIGH(water));
+    }
+
+    // if (temperature > config.HIGH_TEMPERATURE_THRESHOLD) {
+    //   sendJsonObjectToAllClients(TEMPERATURE_HIGH(temperature));
+    // } else if (temperature < config.LOW_TEMPERATURE_THRESHOLD) {
+    //   sendJsonObjectToAllClients(TEMPERATURE_LOW(temperature));
+    // }
+
+    // if (humidity > config.HIGH_HUMIDITY_THRESHOLD) {
+    //   sendJsonObjectToAllClients(HUMIDITY_HIGH(humidity));
+    // } else if (humidity < config.LOW_HUMIDITY_THRESHOLD) {
+    //   sendJsonObjectToAllClients(HUMIDITY_LOW(humidity));
+    // }
   }
 );
 
-// get last Temperature sensor data
-const requestGetTemperatue = "get_temperature";
+// get last sensor data
+const requestGetTemperatue = "get_sensor_data";
 router.get(
-  "/temperature",
+  "/sensor_data",
   Logger(requestGetTemperatue),
   (request, response) => {
-    db.getLastTemperature((err, temperature) => {
+    db.getLastSensorData((err, data) => {
       if (err) {
         response.status(500).send({
           status: false,
@@ -120,35 +226,34 @@ router.get(
 
       response.status(200).send({
         status: true,
-        date: temperature.date,
-        value: temperature.value,
+        data: data,
       });
     });
   }
 );
 
 // get all Temperature sensor data
-const requestGetAllTemperatue = "get_all_temperature";
-router.get(
-  "/temperature/all",
-  Logger(requestGetAllTemperatue),
-  (request, response) => {
-    db.getAllTemperature((err, temperatures) => {
-      if (err) {
-        response.status(500).send({
-          status: false,
-          message: Messages.INTERNAL_SERVER_ERROR,
-        });
-        return;
-      }
+// const requestGetAllTemperatue = "get_all_temperature";
+// router.get(
+//   "/temperature/all",
+//   Logger(requestGetAllTemperatue),
+//   (request, response) => {
+//     db.getAllTemperature((err, temperatures) => {
+//       if (err) {
+//         response.status(500).send({
+//           status: false,
+//           message: Messages.INTERNAL_SERVER_ERROR,
+//         });
+//         return;
+//       }
 
-      response.status(200).send({
-        status: true,
-        data: temperatures,
-      });
-    });
-  }
-);
+//       response.status(200).send({
+//         status: true,
+//         data: temperatures,
+//       });
+//     });
+//   }
+// );
 
 // set Humidity sensor data
 // const requestPostHumidty = "post_humidty";
