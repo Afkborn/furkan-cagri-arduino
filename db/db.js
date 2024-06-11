@@ -68,7 +68,7 @@ exports.getLastHumidity = (callback) => {
       callback(null, row);
     }
   );
-}
+};
 
 // Son gaz verisi alma
 exports.getLastGas = (callback) => {
@@ -83,7 +83,7 @@ exports.getLastGas = (callback) => {
       callback(null, row);
     }
   );
-}
+};
 
 // Son alev verisi alma
 exports.getLastFlame = (callback) => {
@@ -98,7 +98,7 @@ exports.getLastFlame = (callback) => {
       callback(null, row);
     }
   );
-}
+};
 
 // Son su verisi alma
 exports.getLastWater = (callback) => {
@@ -113,8 +113,19 @@ exports.getLastWater = (callback) => {
       callback(null, row);
     }
   );
-}
+};
 
+// get last date
+exports.getLastDataDate = (callback) => {
+  db.get("SELECT date FROM data ORDER BY id DESC LIMIT 1", (err, row) => {
+    if (err) {
+      callback(err);
+      return;
+    }
+
+    callback(null, row);
+  });
+};
 
 // Tüm sıcaklık verilerini alma
 exports.getAllTemperature = (callback) => {
@@ -195,10 +206,8 @@ exports.insertWater = (water) => {
   });
 };
 
-
-
-// get  last temperature, humidity, gas, flame, water data 
-// son sıcaklık, nem, gaz, alev, su verisini al 
+// get  last temperature, humidity, gas, flame, water data
+// son sıcaklık, nem, gaz, alev, su verisini al
 exports.getLastSensorData = (callback) => {
   let lastTemp = null;
   let lastHum = null;
@@ -253,5 +262,4 @@ exports.getLastSensorData = (callback) => {
       });
     });
   });
-
 };

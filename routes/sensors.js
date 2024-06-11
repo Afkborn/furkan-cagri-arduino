@@ -54,6 +54,37 @@ const getTimeForLog = require("../common/time");
 //   }
 // );
 
+// get arduino sensor status
+const requestGetArduinoStatus = "get_arduino_status";
+router.get(
+  "/arduino-status",
+  Logger(requestGetArduinoStatus),
+  (request, response) => {
+    db.getLastSensorData((err, data) => {
+      if (err) {
+        response.status(500).send({
+          status: false,
+          message: Messages.INTERNAL_SERVER_ERROR,
+        });
+        return;
+      }
+      let date = new Date().toISOString();
+      let lastDataDate = new Date(data.temperature.date);
+      let diff = new Date(date) - lastDataDate;
+      if (diff > 30000) {
+        response.status(200).send({
+          status: false,
+          message: Messages.ARDUINO_DISCONNECTED,
+        });
+        return;
+      }
+      response.status(200).send({
+        status: true,
+        message: Messages.ARDUINO_CONNECTED,
+      });
+    });
+  }
+);
 // post limit data
 const requestPostLimitData = "post_limit_data";
 router.post(
@@ -178,6 +209,7 @@ router.post(
       message: Messages.VALUE_SET,
     });
     let date = new Date().toISOString();
+    lastDataDate = date;
     sendJsonObjectToAllClients(
       SENSOR_DATA(date, temperature, humidity, gas, flame, water)
     );
