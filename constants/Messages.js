@@ -13,8 +13,8 @@ exports.HUMIDITY_HIGH_NOTIFICATION = (nem) => `Nem yüksek, nem: ${nem} derece`;
 exports.HUMIDITY_LOW_NOTIFICATION = (nem) => `Nem düşük, nem: ${nem} derece`;
 
 exports.GAS_HIGH_NOTIFICATION = `Gaz algılandı.`;
-exports.FLAME_HIGH_NOTIFICATION = `Alev algılandı`;
-exports.WATER_HIGH_NOTIFICATION = `Su algılandı, DİKKAT!!!`;
+exports.FLAME_HIGH_NOTIFICATION = `Alev algılandı.`;
+exports.WATER_HIGH_NOTIFICATION = `Su algılandı.`;
 
 exports.VALUE_REQUIRED = "Değerler gereklidir";
 exports.INVALID_VALUE = "Geçersiz değerler, lütfen kontrol edin";
